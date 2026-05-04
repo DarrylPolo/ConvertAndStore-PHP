@@ -1,0 +1,20 @@
+{
+    "name": "convertandstore/convertandstore-php",
+    "description": "Official PHP wrapper for the Convert and Store API.",
+    "type": "library",
+    "require": {
+        "php": "^8.1",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "ConvertAndStore\\": "src/"
+        }
+    },
+    "suggest": {
+        "ext-fileinfo": "Used to detect upload MIME types automatically."
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
