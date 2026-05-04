@@ -87,6 +87,18 @@ class Client
         return $response['data'] ?? [];
     }
 
+    public function listSharedFolders(): array
+    {
+        $response = $this->requestJson('GET', '/api/v1/shared-folders');
+        return $response['data'] ?? [];
+    }
+
+    public function getSharedFolder(int|string $shareId): array
+    {
+        $response = $this->requestJson('GET', '/api/v1/shared-folders/' . rawurlencode((string) $shareId));
+        return $response['data'] ?? $response;
+    }
+
     public function createFolder(string $name): array
     {
         $name = trim($name);
@@ -121,6 +133,26 @@ class Client
             'form' => $form,
         ]);
 
+        return $response['data'] ?? $response;
+    }
+
+    public function shareFolderWithMember(int|string $folderId, string $memberIdentifier): array
+    {
+        $memberIdentifier = trim($memberIdentifier);
+        if ($memberIdentifier === '') {
+            throw new \InvalidArgumentException('A member email address or public username is required.');
+        }
+
+        $response = $this->requestJson('POST', '/api/v1/folders/' . rawurlencode((string) $folderId) . '/share-member', true, [
+            'form' => ['member_identifier' => $memberIdentifier],
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
+    public function revokeFolderMemberShare(int|string $folderId, int|string $shareId): array
+    {
+        $response = $this->requestJson('POST', '/api/v1/folders/' . rawurlencode((string) $folderId) . '/share-member/' . rawurlencode((string) $shareId) . '/revoke');
         return $response['data'] ?? $response;
     }
 
@@ -259,6 +291,237 @@ class Client
         return $destinationPath;
     }
 
+    public function downloadSharedFolderFile(int|string $shareId, int|string $fileId, string $destinationPath): string
+    {
+        $destinationPath = trim($destinationPath);
+        if ($destinationPath === '') {
+            throw new \InvalidArgumentException('A destination path is required.');
+        }
+
+        $directory = dirname($destinationPath);
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+            throw new \RuntimeException('Could not create the destination directory.');
+        }
+
+        $handle = fopen($destinationPath, 'wb');
+        if ($handle === false) {
+            throw new \RuntimeException('Could not open the destination path for writing.');
+        }
+
+        $url = $this->buildUrl('/api/v1/shared-folders/' . rawurlencode((string) $shareId) . '/files/' . rawurlencode((string) $fileId) . '/download');
+        $curl = curl_init($url);
+        if ($curl === false) {
+            fclose($handle);
+            throw new NetworkException('Could not initialize cURL.');
+        }
+
+        curl_setopt_array($curl, [
+            CURLOPT_FILE => $handle,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTPGET => true,
+            CURLOPT_HTTPHEADER => $this->defaultHeaders(true),
+            CURLOPT_TIMEOUT => $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_USERAGENT => $this->userAgent,
+        ]);
+
+        $ok = curl_exec($curl);
+        $statusCode = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($curl);
+        curl_close($curl);
+        fclose($handle);
+
+        if ($ok === false) {
+            @unlink($destinationPath);
+            throw new NetworkException($error !== '' ? $error : 'The download request failed.');
+        }
+
+        if ($statusCode >= 400) {
+            $body = (string) @file_get_contents($destinationPath);
+            @unlink($destinationPath);
+            $this->throwApiException($statusCode, $body);
+        }
+
+        return $destinationPath;
+    }
+
+    public function getTeam(): array
+    {
+        $response = $this->requestJson('GET', '/api/v1/team');
+        return $response['data'] ?? $response;
+    }
+
+    public function updateTeam(array $attributes): array
+    {
+        $form = [];
+        foreach ($attributes as $key => $value) {
+            if (!is_string($key) || trim($key) === '' || $value === null) {
+                continue;
+            }
+
+            $form[$key] = is_bool($value) ? ($value ? '1' : '0') : trim((string) $value);
+        }
+
+        $response = $this->requestJson('POST', '/api/v1/team', true, [
+            'form' => $form,
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
+    public function inviteTeamMember(string $email, string $role = 'member'): array
+    {
+        $email = strtolower(trim($email));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new \InvalidArgumentException('A valid team member email address is required.');
+        }
+
+        $role = strtolower(trim($role));
+        if (!in_array($role, ['admin', 'member'], true)) {
+            $role = 'member';
+        }
+
+        $response = $this->requestJson('POST', '/api/v1/team/invitations', true, [
+            'form' => [
+                'email' => $email,
+                'role' => $role,
+            ],
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
+    public function updateTeamMemberRole(int|string $membershipId, string $role): array
+    {
+        $role = strtolower(trim($role));
+        if (!in_array($role, ['admin', 'member'], true)) {
+            throw new \InvalidArgumentException('Team roles must be admin or member.');
+        }
+
+        $response = $this->requestJson('POST', '/api/v1/team/members/' . rawurlencode((string) $membershipId) . '/role', true, [
+            'form' => ['role' => $role],
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
+    public function removeTeamMember(int|string $membershipId): array
+    {
+        $response = $this->requestJson('POST', '/api/v1/team/members/' . rawurlencode((string) $membershipId) . '/remove');
+        return $response['data'] ?? $response;
+    }
+
+    public function revokeTeamInvitation(int|string $invitationId): array
+    {
+        $response = $this->requestJson('POST', '/api/v1/team/invitations/' . rawurlencode((string) $invitationId) . '/revoke');
+        return $response['data'] ?? $response;
+    }
+
+    public function getWatchFolders(): array
+    {
+        $response = $this->requestJson('GET', '/api/v1/watch-folders');
+        return $response['data'] ?? $response;
+    }
+
+    public function createWatchFolder(array $attributes): array
+    {
+        $response = $this->requestJson('POST', '/api/v1/watch-folders', true, [
+            'form' => $this->normalizeFields($attributes),
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
+    public function updateWatchFolder(int|string $ruleId, array $attributes): array
+    {
+        $response = $this->requestJson('POST', '/api/v1/watch-folders/' . rawurlencode((string) $ruleId), true, [
+            'form' => $this->normalizeFields($attributes),
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
+    public function deleteWatchFolder(int|string $ruleId): array
+    {
+        $response = $this->requestJson('POST', '/api/v1/watch-folders/' . rawurlencode((string) $ruleId) . '/delete');
+        return $response['data'] ?? $response;
+    }
+
+    public function createTeamWatchFolder(array $attributes): array
+    {
+        $response = $this->requestJson('POST', '/api/v1/team/watch-folders', true, [
+            'form' => $this->normalizeFields($attributes),
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
+    public function updateTeamWatchFolder(int|string $ruleId, array $attributes): array
+    {
+        $response = $this->requestJson('POST', '/api/v1/team/watch-folders/' . rawurlencode((string) $ruleId), true, [
+            'form' => $this->normalizeFields($attributes),
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
+    public function deleteTeamWatchFolder(int|string $ruleId): array
+    {
+        $response = $this->requestJson('POST', '/api/v1/team/watch-folders/' . rawurlencode((string) $ruleId) . '/delete');
+        return $response['data'] ?? $response;
+    }
+
+    public function getWebhooks(): array
+    {
+        $response = $this->requestJson('GET', '/api/v1/webhooks');
+        return $response['data'] ?? $response;
+    }
+
+    public function createWebhook(string $name, string $endpointUrl, array $events): array
+    {
+        $name = trim($name);
+        $endpointUrl = trim($endpointUrl);
+        if ($name === '') {
+            throw new \InvalidArgumentException('A webhook endpoint name is required.');
+        }
+
+        if (!filter_var($endpointUrl, FILTER_VALIDATE_URL)) {
+            throw new \InvalidArgumentException('A valid webhook endpoint URL is required.');
+        }
+
+        $normalizedEvents = array_values(array_filter(array_map(
+            static fn (mixed $value): string => trim((string) $value),
+            $events
+        ), static fn (string $value): bool => $value !== ''));
+
+        if ($normalizedEvents === []) {
+            throw new \InvalidArgumentException('At least one webhook event is required.');
+        }
+
+        $form = [
+            'name' => $name,
+            'endpoint_url' => $endpointUrl,
+        ];
+
+        foreach ($normalizedEvents as $index => $eventName) {
+            $form['events[' . $index . ']'] = $eventName;
+        }
+
+        $response = $this->requestJson('POST', '/api/v1/webhooks', true, [
+            'form' => $form,
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
+    public function deleteWebhook(int|string $endpointId): array
+    {
+        $response = $this->requestJson('POST', '/api/v1/webhooks/' . rawurlencode((string) $endpointId) . '/delete');
+        return $response['data'] ?? $response;
+    }
+
     public function convert(string $toolSlug, string $filePath, array $options = []): array
     {
         $this->assertReadableFile($filePath);
@@ -292,6 +555,20 @@ class Client
 
         $response = $this->requestJson('POST', '/api/v1/tools/' . rawurlencode($toolSlug) . '/convert', true, [
             'multipart' => $multipart,
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
+    public function convertUrlTool(string $toolSlug, array $fields): array
+    {
+        $normalized = $this->normalizeFields($fields);
+        if (($normalized['url'] ?? '') === '') {
+            throw new \InvalidArgumentException('A public website URL is required for URL-based tool conversion.');
+        }
+
+        $response = $this->requestJson('POST', '/api/v1/tools/' . rawurlencode($toolSlug) . '/convert', true, [
+            'form' => $normalized,
         ]);
 
         return $response['data'] ?? $response;

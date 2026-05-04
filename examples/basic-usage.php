@@ -16,11 +16,13 @@ try {
     $me = $client->getMe();
     $tools = $client->listTools();
     $folders = $client->listFolders();
+    $sharedFolders = $client->listSharedFolders();
 
     print_r($status);
     print_r($me);
     print_r(array_slice($tools, 0, 3));
     print_r($folders);
+    print_r($sharedFolders);
 
     $conversion = $client->convert(
         'jpg-to-png',
@@ -31,6 +33,18 @@ try {
     );
 
     print_r($conversion);
+
+    $capture = $client->convertUrlTool(
+        'website-screenshot',
+        [
+            'url' => 'https://example.com',
+            'viewport_width' => 1440,
+            'viewport_height' => 1024,
+            'delay_ms' => 1200,
+        ]
+    );
+
+    print_r($capture);
 } catch (AuthenticationException $exception) {
     echo 'Auth error: ' . $exception->getMessage() . PHP_EOL;
 } catch (NetworkException $exception) {
