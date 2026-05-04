@@ -15,10 +15,12 @@ try {
     $status = $client->getStatus();
     $me = $client->getMe();
     $tools = $client->listTools();
+    $folders = $client->listFolders();
 
     print_r($status);
     print_r($me);
     print_r(array_slice($tools, 0, 3));
+    print_r($folders);
 
     $conversion = $client->convert(
         'jpg-to-png',

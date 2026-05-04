@@ -101,6 +101,29 @@ class Client
         return $response['data'] ?? $response;
     }
 
+    public function deleteFolder(int|string $folderId, string $mode = 'root', int|string|null $targetFolderId = null): array
+    {
+        $mode = strtolower(trim($mode));
+        if (!in_array($mode, ['root', 'move', 'delete'], true)) {
+            throw new \InvalidArgumentException('Folder delete mode must be root, move, or delete.');
+        }
+
+        $form = ['mode' => $mode];
+        if ($mode === 'move') {
+            if ($targetFolderId === null || trim((string) $targetFolderId) === '') {
+                throw new \InvalidArgumentException('A target folder id is required when mode is move.');
+            }
+
+            $form['target_folder_id'] = (string) $targetFolderId;
+        }
+
+        $response = $this->requestJson('POST', '/api/v1/folders/' . rawurlencode((string) $folderId) . '/delete', true, [
+            'form' => $form,
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
     public function shareFile(int|string $fileId, bool $public = true): array
     {
         $response = $this->requestJson('POST', '/api/v1/files/' . rawurlencode((string) $fileId) . '/share', true, [
@@ -113,6 +136,20 @@ class Client
     public function deleteFile(int|string $fileId): array
     {
         $response = $this->requestJson('POST', '/api/v1/files/' . rawurlencode((string) $fileId) . '/delete');
+        return $response['data'] ?? $response;
+    }
+
+    public function moveFile(int|string $fileId, int|string|null $folderId = null): array
+    {
+        $form = [];
+        if ($folderId !== null && trim((string) $folderId) !== '') {
+            $form['folder_id'] = (string) $folderId;
+        }
+
+        $response = $this->requestJson('POST', '/api/v1/files/' . rawurlencode((string) $fileId) . '/move', true, [
+            'form' => $form,
+        ]);
+
         return $response['data'] ?? $response;
     }
 

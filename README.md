@@ -7,6 +7,7 @@ It supports:
 - account lookups
 - tool catalog discovery
 - file and folder management
+- file moves and folder cleanup flows
 - share-link creation
 - direct file downloads
 - single-file conversion tools
@@ -128,6 +129,22 @@ $share = $client->shareFile(121, true);
 echo $share['share']['url'] . PHP_EOL;
 ```
 
+### Move a file into a folder
+
+```php
+$moved = $client->moveFile(121, 14);
+
+echo $moved['folder_name'] . PHP_EOL;
+```
+
+### Delete a folder and move its files elsewhere
+
+```php
+$result = $client->deleteFolder(9, 'move', 14);
+
+echo $result['files_affected'] . PHP_EOL;
+```
+
 ### Download a stored file
 
 ```php
@@ -151,6 +168,8 @@ echo "Saved to {$savedTo}" . PHP_EOL;
 - `getFile(int|string $fileId): array`
 - `listFolders(): array`
 - `createFolder(string $name): array`
+- `deleteFolder(int|string $folderId, string $mode = 'root', int|string|null $targetFolderId = null): array`
+- `moveFile(int|string $fileId, int|string|null $folderId = null): array`
 - `shareFile(int|string $fileId, bool $public = true): array`
 - `deleteFile(int|string $fileId): array`
 - `downloadFile(int|string $fileId, string $destinationPath): string`
@@ -185,3 +204,4 @@ try {
 - Multi-upload tools such as `zip-create`, `rar-create`, `seven-z-create`, `tar-create`, `tar-gz-create`, and `merge-pdf` use `uploads[]`.
 - Conversion responses include `preview_url`, `download_url`, and `metrics` when available.
 - File downloads are saved to the destination path you provide.
+- Folder deletion supports `root`, `move`, and `delete` strategies.
