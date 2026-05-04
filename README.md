@@ -7,6 +7,7 @@ It supports:
 - account lookups
 - tool catalog discovery
 - file and folder management
+- batch file rename workflows
 - file moves and folder cleanup flows
 - share-link creation
 - direct file downloads
@@ -137,6 +138,35 @@ $moved = $client->moveFile(121, 14);
 echo $moved['folder_name'] . PHP_EOL;
 ```
 
+### Batch rename files with numeric succession
+
+```php
+$renamed = $client->batchRenameFiles(
+    [121, 122, 123],
+    sequenceType: 'numeric',
+    prefix: 'project-',
+    suffix: '-final',
+    startAt: 1,
+    padding: 3
+);
+
+echo $renamed[0]['name'] . PHP_EOL; // project-001-final.png
+```
+
+### Batch rename files with alphabet succession
+
+```php
+$renamed = $client->batchRenameFiles(
+    [121, 122, 123],
+    sequenceType: 'alphabet',
+    prefix: 'set-',
+    suffix: '',
+    startAt: 'A'
+);
+
+echo $renamed[1]['name'] . PHP_EOL; // set-B.png
+```
+
 ### Delete a folder and move its files elsewhere
 
 ```php
@@ -170,6 +200,7 @@ echo "Saved to {$savedTo}" . PHP_EOL;
 - `createFolder(string $name): array`
 - `deleteFolder(int|string $folderId, string $mode = 'root', int|string|null $targetFolderId = null): array`
 - `moveFile(int|string $fileId, int|string|null $folderId = null): array`
+- `batchRenameFiles(array $fileIds, string $sequenceType = 'numeric', string $prefix = '', string $suffix = '', int|string $startAt = 1, int $padding = 0): array`
 - `shareFile(int|string $fileId, bool $public = true): array`
 - `deleteFile(int|string $fileId): array`
 - `downloadFile(int|string $fileId, string $destinationPath): string`
@@ -205,3 +236,4 @@ try {
 - Conversion responses include `preview_url`, `download_url`, and `metrics` when available.
 - File downloads are saved to the destination path you provide.
 - Folder deletion supports `root`, `move`, and `delete` strategies.
+- Batch rename supports `numeric` and `alphabet` succession, plus optional prefix, suffix, and numeric padding.

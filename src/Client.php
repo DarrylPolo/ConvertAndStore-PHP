@@ -153,6 +153,47 @@ class Client
         return $response['data'] ?? $response;
     }
 
+    public function batchRenameFiles(
+        array $fileIds,
+        string $sequenceType = 'numeric',
+        string $prefix = '',
+        string $suffix = '',
+        int|string $startAt = 1,
+        int $padding = 0
+    ): array {
+        $normalizedIds = array_values(array_filter(array_map(
+            static fn (mixed $value): string => trim((string) $value),
+            $fileIds
+        ), static fn (string $value): bool => $value !== ''));
+
+        if ($normalizedIds === []) {
+            throw new \InvalidArgumentException('At least one file id is required.');
+        }
+
+        $sequenceType = strtolower(trim($sequenceType));
+        if (!in_array($sequenceType, ['numeric', 'alphabet'], true)) {
+            throw new \InvalidArgumentException('Sequence type must be numeric or alphabet.');
+        }
+
+        $form = [
+            'sequence_type' => $sequenceType,
+            'prefix' => trim($prefix),
+            'suffix' => trim($suffix),
+            'start_at' => trim((string) $startAt),
+            'padding' => (string) max(0, $padding),
+        ];
+
+        foreach ($normalizedIds as $index => $fileId) {
+            $form['file_ids[' . $index . ']'] = $fileId;
+        }
+
+        $response = $this->requestJson('POST', '/api/v1/files/batch-rename', true, [
+            'form' => $form,
+        ]);
+
+        return $response['data'] ?? $response;
+    }
+
     public function downloadFile(int|string $fileId, string $destinationPath): string
     {
         $destinationPath = trim($destinationPath);
